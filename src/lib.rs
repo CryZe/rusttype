@@ -113,10 +113,10 @@ use approx::relative_eq;
 use core::fmt;
 use stb_truetype as tt;
 
-#[cfg(feature = "has-atomics")]
-use alloc::sync::Arc;
 #[cfg(not(feature = "has-atomics"))]
 use alloc::rc::Rc as Arc;
+#[cfg(feature = "has-atomics")]
+use alloc::sync::Arc;
 
 #[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, vec::Vec};
@@ -816,6 +816,7 @@ impl<'a> ScaledGlyph<'a> {
         match self.g.inner {
             GlyphInner::Proxy(ref font, id) => {
                 let hm = font.info.get_glyph_h_metrics(id);
+                gcn::report!("hm: {:?}", hm);
                 HMetrics {
                     advance_width: hm.advance_width as f32 * self.scale.x,
                     left_side_bearing: hm.left_side_bearing as f32 * self.scale.x,
