@@ -95,9 +95,12 @@
     clippy::cast_lossless,
     clippy::many_single_char_names
 )]
+#![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(feature = "bench", feature(test))]
 #[cfg(feature = "bench")]
 extern crate test;
+
+extern crate alloc;
 
 mod geometry;
 mod rasterizer;
@@ -107,9 +110,18 @@ pub mod gpu_cache;
 
 pub use crate::geometry::{point, vector, Curve, Line, Point, Rect, Vector};
 use approx::relative_eq;
+use core::fmt;
 use stb_truetype as tt;
-use std::fmt;
-use std::sync::Arc;
+
+#[cfg(feature = "has-atomics")]
+use alloc::sync::Arc;
+#[cfg(not(feature = "has-atomics"))]
+use alloc::rc::Rc as Arc;
+
+#[cfg(not(feature = "std"))]
+use alloc::{boxed::Box, vec::Vec};
+#[cfg(not(feature = "std"))]
+use libm::F32Ext;
 
 /// A collection of fonts read straight from a font file's data. The data in the
 /// collection is not validated. This structure may or may not own the font
@@ -167,7 +179,7 @@ pub enum SharedBytes<'a> {
     ByArc(Arc<[u8]>),
 }
 
-impl<'a> ::std::ops::Deref for SharedBytes<'a> {
+impl<'a> core::ops::Deref for SharedBytes<'a> {
     type Target = [u8];
     fn deref(&self) -> &[u8] {
         match *self {
@@ -320,7 +332,7 @@ impl From<tt::VMetrics> for VMetrics {
     }
 }
 
-impl ::std::ops::Mul<f32> for VMetrics {
+impl core::ops::Mul<f32> for VMetrics {
     type Output = VMetrics;
 
     fn mul(self, rhs: f32) -> Self {
@@ -653,7 +665,7 @@ where
 #[derive(Clone)]
 pub struct LayoutIter<'a, 'b> {
     font: &'b Font<'a>,
-    chars: ::std::str::Chars<'b>,
+    chars: core::str::Chars<'b>,
     caret: f32,
     scale: Scale,
     start: Point<f32>,
@@ -816,8 +828,8 @@ impl<'a> ScaledGlyph<'a> {
         }
     }
     fn shape_with_offset(&self, offset: Point<f32>) -> Option<Vec<Contour>> {
+        use core::mem::replace;
         use stb_truetype::VertexType;
-        use std::mem::replace;
         match self.g.inner {
             GlyphInner::Proxy(ref font, id) => font.info.get_glyph_shape(id),
             GlyphInner::Shared(ref data) => data.shape.clone(),
@@ -1075,13 +1087,7 @@ pub enum Error {
     CollectionContainsMultipleFonts,
 }
 
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::result::Result<(), fmt::Error> {
-        f.write_str(std::error::Error::description(self))
-    }
-}
-
-impl std::error::Error for Error {
+impl Error {
     fn description(&self) -> &str {
         use self::Error::*;
         match *self {
@@ -1096,6 +1102,20 @@ impl std::error::Error for Error {
     }
 }
 
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> core::result::Result<(), fmt::Error> {
+        f.write_str(self.description())
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for Error {
+    fn description(&self) -> &str {
+        self.description()
+    }
+}
+
+#[cfg(feature = "std")]
 impl std::convert::From<Error> for std::io::Error {
     fn from(error: Error) -> Self {
         std::io::Error::new(std::io::ErrorKind::Other, error)
