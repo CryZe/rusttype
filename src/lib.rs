@@ -817,6 +817,7 @@ impl<'a> ScaledGlyph<'a> {
             GlyphInner::Proxy(ref font, id) => {
                 let hm = font.info.get_glyph_h_metrics(id);
                 gcn::report!("hm: {:?}", hm);
+                gcn::report!("{} * {} = {}", hm.advance_width, self.scale.x, hm.advance_width as f32 * self.scale.x);
                 HMetrics {
                     advance_width: hm.advance_width as f32 * self.scale.x,
                     left_side_bearing: hm.left_side_bearing as f32 * self.scale.x,
